@@ -1,10 +1,102 @@
+#  Pyrogram - Telegram MTProto API Client Library for Python
+#  Copyright (C) 2017-present Dan <https://github.com/delivrance>
+#
+#  This file is part of Pyrogram.
+#
+#  Pyrogram is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published
+#  by the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Pyrogram is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
+
 from typing import Optional, Union
 
 import pyrogram
 from pyrogram import enums, raw, types
 from ..object import Object
 
+
 class InlineKeyboardButton(Object):
+    """One button of an inline keyboard.
+
+    Exactly one of the fields other than ``text``, ``icon_custom_emoji_id``, and ``style`` must be used to specify the type of the button.
+
+    Parameters:
+        text (``str``):
+            Label text on the button.
+
+        icon_custom_emoji_id (``str``, *optional*):
+            Unique identifier of the custom emoji shown before the text of the button. Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private, group and supergroup chats if the owner of the bot has a Telegram Premium subscription..
+
+        style (:obj:`~pyrogram.enums.ButtonStyle`, *optional*):
+            Style of the button.
+            If omitted, then an app-specific style is used.
+
+        url (``str``, *optional*):
+            HTTP url to be opened when button is pressed.
+
+        user_id (``int``, *optional*):
+            User id, for links to the user profile.
+
+        callback_data (``str`` | ``bytes``, *optional*):
+            Data to be sent in a callback query to the bot when button is pressed, 1-64 bytes.
+
+        web_app (:obj:`~pyrogram.types.WebAppInfo`, *optional*):
+            Description of the `Web App <https://core.telegram.org/bots/webapps>`_ that will be launched when the user
+            presses the button. The Web App will be able to send an arbitrary message on behalf of the user using the
+            method :meth:`~pyrogram.Client.answer_web_app_query`. Available only in private chats between a user and the
+            bot.
+
+        login_url (:obj:`~pyrogram.types.LoginUrl`, *optional*):
+             An HTTP URL used to automatically authorize the user. Can be used as a replacement for
+             the `Telegram Login Widget <https://core.telegram.org/widgets/login>`_.
+
+        switch_inline_query (``str``, *optional*):
+            If set, pressing the button will prompt the user to select one of their chats, open that chat and insert
+            the bot's username and the specified inline query in the input field. Can be empty, in which case just
+            the bot's username will be inserted.Note: This offers an easy way for users to start using your bot in
+            inline mode when they are currently in a private chat with it. Especially useful when combined with
+            switch_pm… actions – in this case the user will be automatically returned to the chat they switched from,
+            skipping the chat selection screen.
+
+        switch_inline_query_current_chat (``str``, *optional*):
+            If set, pressing the button will insert the bot's username and the specified inline query in the current
+            chat's input field. Can be empty, in which case only the bot's username will be inserted.This offers a
+            quick way for the user to open your bot in inline mode in the same chat - good for selecting something
+            from multiple options.
+
+        switch_inline_query_chosen_chat (:obj:`~pyrogram.types.SwitchInlineQueryChosenChat`, *optional*):
+            If set, pressing the button will prompt the user to select one of their chats of the specified type, open that chat and insert the bot's username and the specified inline query in the input field
+
+        copy_text (:obj:`~pyrogram.types.CopyTextButton`, *optional*):
+            Description of the button that copies the specified text to the clipboard.
+
+        callback_game (:obj:`~pyrogram.types.CallbackGame`, *optional*):
+            Description of the game that will be launched when the user presses the button.
+
+            .. note::
+
+                This type of button **must** always be the first button in the first row.
+
+        pay (``bool``, *optional*):
+            Specify True, to send a Pay button. Substrings "⭐" and "XTR" in the buttons's text will be replaced with a Telegram Star icon.
+
+            .. note::
+
+                This type of button **must** always be the first button in the first row and can only be used in invoice messages.
+
+        callback_data_with_password (``bytes``, *optional*):
+            A button that asks for the 2-step verification password of the current user and then sends a callback query to a bot Data to be sent to the bot via a callback query.
+
+    """
+
     def __init__(
         self,
         text: str,
@@ -55,6 +147,7 @@ class InlineKeyboardButton(Object):
                 button_style = enums.ButtonStyle.DANGER
             elif getattr(raw_style, "bg_success", False):
                 button_style = enums.ButtonStyle.SUCCESS
+            
             if getattr(raw_style, "icon", None):
                 icon_custom_emoji_id = str(raw_style.icon)
 
@@ -166,12 +259,16 @@ class InlineKeyboardButton(Object):
             )
 
     async def write(self, client: "pyrogram.Client"):
-        raw_style = raw.types.KeyboardButtonStyle(
-            bg_primary=self.style == enums.ButtonStyle.PRIMARY,
-            bg_danger=self.style == enums.ButtonStyle.DANGER,
-            bg_success=self.style == enums.ButtonStyle.SUCCESS,
-            icon=int(self.icon_custom_emoji_id) if self.icon_custom_emoji_id else None
-        )
+        raw_style = None
+        
+        # Mencegah pembuatan KeyboardButtonStyle kosong jika nilainya DEFAULT dan tidak ada emoji
+        if (self.style and self.style != enums.ButtonStyle.DEFAULT) or self.icon_custom_emoji_id:
+            raw_style = raw.types.KeyboardButtonStyle(
+                bg_primary=self.style == enums.ButtonStyle.PRIMARY,
+                bg_danger=self.style == enums.ButtonStyle.DANGER,
+                bg_success=self.style == enums.ButtonStyle.SUCCESS,
+                icon=int(self.icon_custom_emoji_id) if self.icon_custom_emoji_id else None
+            )
 
         if self.callback_data_with_password is not None:
             if isinstance(self.callback_data_with_password, str):
