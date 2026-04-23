@@ -18,13 +18,15 @@
 
 from io import BytesIO
 from json import dumps
-from typing import cast, List, Any, Union, Dict
+from typing import cast, Any, Union, TypeVar, Generic
 
 from ..all import objects
 
+ReturnType = TypeVar("ReturnType")
 
-class TLObject:
-    __slots__: List[str] = []
+
+class TLObject(Generic[ReturnType]):
+    __slots__: list[str] = []
 
     QUALNAME = "Base"
 
@@ -36,7 +38,7 @@ class TLObject:
         pass
 
     @staticmethod
-    def default(obj: "TLObject") -> Union[str, Dict[str, str]]:
+    def default(obj: "TLObject") -> Union[str, dict[str, str]]:
         if isinstance(obj, bytes):
             return repr(obj)
 
@@ -78,5 +80,5 @@ class TLObject:
     def __len__(self) -> int:
         return len(self.write())
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+    def __call__(self, *args: Any, **kwargs: Any) -> ReturnType:
         pass
