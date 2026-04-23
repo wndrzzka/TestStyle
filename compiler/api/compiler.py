@@ -22,7 +22,7 @@ import re
 import shutil
 from functools import partial
 from pathlib import Path
-from typing import NamedTuple, List, Tuple
+from typing import NamedTuple
 
 # from autoflake import fix_code
 # from black import format_str, FileMode
@@ -64,11 +64,15 @@ try:
     with open("docs.json") as f:
         docs = json.load(f)
 except FileNotFoundError:
-    docs = {
-        "type": {},
-        "constructor": {},
-        "method": {}
-    }
+    try:
+        with open(HOME_PATH / "docs.json") as f:
+            docs = json.load(f)
+    except FileNotFoundError:
+        docs = {
+            "type": {},
+            "constructor": {},
+            "method": {}
+        }
 
 
 class Combinator(NamedTuple):
@@ -78,7 +82,7 @@ class Combinator(NamedTuple):
     name: str
     id: str
     has_flags: bool
-    args: List[Tuple[str, str]]
+    args: list[tuple[str, str]]
     qualtype: str
     typespace: str
     type: str
@@ -92,6 +96,19 @@ def snake(s: str):
 
 def camel(s: str):
     return "".join([i[0].upper() + i[1:] for i in s.split("_")])
+
+
+# noinspection PyShadowingBuiltins, PyShadowingNames
+def get_return_type_hint(qualtype: str) -> str:
+    """Get return type hint for generic TLObject"""
+    if qualtype.startswith("Vector"):
+        # Extract inner type from Vector<Type>
+        inner = qualtype.split("<")[1][:-1]
+        ns, name = inner.split(".") if "." in inner else ("", inner)
+        return f'"List[raw.base.{".".join([ns, name]).strip(".")}]"'
+    else:
+        ns, name = qualtype.split(".") if "." in qualtype else ("", qualtype)
+        return f'"raw.base.{".".join([ns, name]).strip(".")}"'
 
 
 # noinspection PyShadowingBuiltins, PyShadowingNames
@@ -123,7 +140,7 @@ def get_type_hint(type: str) -> str:
         is_core = True
 
         sub_type = type.split("<")[1][:-1]
-        type = f"List[{get_type_hint(sub_type)}]"
+        type = f"list[{get_type_hint(sub_type)}]"
 
     if is_core:
         return f"Optional[{type}] = None" if is_flag else type
@@ -258,10 +275,13 @@ def start(format: bool = False):
 
             args = ARGS_RE.findall(line)
 
-            # Fix arg name being "self" (reserved python keyword)
+            # Fix arg name being reserved python keyword
             for i, item in enumerate(args):
-                if item[0] == "self":
-                    args[i] = ("is_self", item[1])
+                if item[0] in [
+                    "self",
+                    "from",
+                ]:
+                    args[i] = (f"is_{item[0]}", item[1])
 
             combinator = Combinator(
                 section=section,
@@ -424,7 +444,10 @@ def start(format: bool = False):
             function_docs = docs["method"].get(c.qualname, None)
 
             if function_docs:
-                docstring += function_docs["desc"] + "\n"
+                docstring += function_docs.get("desc", "").strip() + "\n"
+
+                if function_docs.get("usable-by", "") != "":
+                    docstring += "\n    .. include:: /_includes/usable-by/" + function_docs["usable-by"] + ".rst\n        "
             else:
                 docstring += f"Telegram API function."
 
@@ -539,6 +562,12 @@ def start(format: bool = False):
         slots = ", ".join([f'"{i[0]}"' for i in sorted_args])
         return_arguments = ", ".join([f"{i[0]}={i[0]}" for i in sorted_args])
 
+        # Generate generic type hint for functions
+        if c.section == "functions":
+            generic_type = f"[{get_return_type_hint(c.qualtype)}]"
+        else:
+            generic_type = ""
+
         compiled_combinator = combinator_tmpl.format(
             notice=notice,
             warning=WARNING,
@@ -551,7 +580,8 @@ def start(format: bool = False):
             fields=fields,
             read_types=read_types,
             write_types=write_types,
-            return_arguments=return_arguments
+            return_arguments=return_arguments,
+            generic_type=generic_type
         )
 
         directory = "types" if c.section == "types" else c.section
